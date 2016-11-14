@@ -20,8 +20,7 @@ import javafx.scene.shape.Line;
 public class CustomScatterChart extends ScatterChart<Number, Number> {
 	private final MenuItem add = new MenuItem("Add Point");
 	private final MenuItem del = new MenuItem("Delete Point");
-	private final ContextMenu contextMenu1 = new ContextMenu(add);
-	private final ContextMenu contextMenu2 = new ContextMenu(del);
+	private final ContextMenu contextMenu = new ContextMenu(add, del);
 	private final ObservableList<Data<Number, Number>> dataList = FXCollections.<Data<Number, Number>>observableArrayList();
 	private final ObservableList<Data<Number, Number>> curveList = FXCollections.<Data<Number, Number>>observableArrayList();
 	private final Tooltip tooltip = new Tooltip();
@@ -42,7 +41,9 @@ public class CustomScatterChart extends ScatterChart<Number, Number> {
 			if (e.getButton() == MouseButton.SECONDARY) {
 				clickedX = getDataValue(e.getX() - yAxis.getWidth() - getInsets().getLeft() - getPadding().getLeft() - 6, xAxis);
 				clickedY = getDataValue(e.getY() - getInsets().getTop() - getPadding().getTop(), yAxis);
-				contextMenu1.show(this, e.getScreenX(), e.getScreenY());
+				add.setVisible(true);
+				del.setVisible(false);
+				contextMenu.show(this, e.getScreenX(), e.getScreenY());
 				e.consume();
 			}
 		});
@@ -86,9 +87,11 @@ public class CustomScatterChart extends ScatterChart<Number, Number> {
 			if (e.getButton() == MouseButton.SECONDARY) {
 				final NumberAxis xAxis = (NumberAxis) getXAxis();
 				// disable menu item for first and last data point
+				add.setVisible(false);
+				del.setVisible(true);
 				del.setDisable(dataPoint.getXValue().doubleValue() == xAxis.getLowerBound() || dataPoint.getXValue().doubleValue() == xAxis.getUpperBound());
 				clickedSymbol = (Node) e.getSource();
-				contextMenu2.show(circle, e.getScreenX(), e.getScreenY());
+				contextMenu.show(circle, e.getScreenX(), e.getScreenY());
 				e.consume();
 			}
 		});
@@ -101,8 +104,11 @@ public class CustomScatterChart extends ScatterChart<Number, Number> {
 
 		// show tooltip
 		circle.addEventHandler(MouseEvent.MOUSE_PRESSED, e -> {
-			tooltip.setText(String.format("%d, %d", dataPoint.getXValue().intValue(), dataPoint.getYValue().intValue()));
-			tooltip.show(circle, e.getScreenX() + 5, e.getScreenY() + 5);
+			if (e.getButton() == MouseButton.PRIMARY) {
+				contextMenu.hide();
+				tooltip.setText(String.format("%d, %d", dataPoint.getXValue().intValue(), dataPoint.getYValue().intValue()));
+				tooltip.show(circle, e.getScreenX() + 5, e.getScreenY() + 5);
+			}
 		});
 
 		// hide tooltip
@@ -110,40 +116,42 @@ public class CustomScatterChart extends ScatterChart<Number, Number> {
 
 		// update data value & round to integers while dragging
 		circle.addEventHandler(MouseEvent.MOUSE_DRAGGED, e -> {
-			final NumberAxis xAxis = (NumberAxis) getXAxis();
-			final NumberAxis yAxis = (NumberAxis) getYAxis();
-			final int maxIndex = dataList.size() - 1;
-			final int index = dataList.indexOf(dataPoint);
-			double newX = getDataValue(e.getX(), xAxis);
-			final double newY = getDataValue(e.getY(), yAxis);
+			if (e.getButton() == MouseButton.PRIMARY) {
+				final NumberAxis xAxis = (NumberAxis) getXAxis();
+				final NumberAxis yAxis = (NumberAxis) getYAxis();
+				final int maxIndex = dataList.size() - 1;
+				final int index = dataList.indexOf(dataPoint);
+				double newX = getDataValue(e.getX(), xAxis);
+				final double newY = getDataValue(e.getY(), yAxis);
 
-			if (index == 0) {
-				// first data point is fixed to left side
-				newX = xAxis.getLowerBound();
-			} else if (index == maxIndex) {
-				// last data point is fixed to right side
-				newX = xAxis.getUpperBound();
-			} else {
-				// preserve order - right of previous data point
-				final double prevX = dataList.get(index - 1).getXValue().doubleValue();
-				if (newX <= prevX) {
-					newX = prevX + 1;
+				if (index == 0) {
+					// first data point is fixed to left side
+					newX = xAxis.getLowerBound();
+				} else if (index == maxIndex) {
+					// last data point is fixed to right side
+					newX = xAxis.getUpperBound();
+				} else {
+					// preserve order - right of previous data point
+					final double prevX = dataList.get(index - 1).getXValue().doubleValue();
+					if (newX <= prevX) {
+						newX = prevX + 1;
+					}
+
+					// preserve order - left of next data point
+					final double nextX = dataList.get(index + 1).getXValue().doubleValue();
+					if (newX >= nextX) {
+						newX = nextX - 1;
+					}
 				}
 
-				// preserve order - left of next data point
-				final double nextX = dataList.get(index + 1).getXValue().doubleValue();
-				if (newX >= nextX) {
-					newX = nextX - 1;
-				}
+				dataPoint.setXValue(newX);
+				dataPoint.setYValue(newY);
+
+				// update tooltip
+				tooltip.setText(String.format("%d, %d", dataPoint.getXValue().intValue(), dataPoint.getYValue().intValue()));
+				tooltip.setAnchorX(e.getScreenX() + 5);
+				tooltip.setAnchorY(e.getScreenY() + 5);
 			}
-
-			dataPoint.setXValue(newX);
-			dataPoint.setYValue(newY);
-
-			// update tooltip
-			tooltip.setText(String.format("%d, %d", dataPoint.getXValue().intValue(), dataPoint.getYValue().intValue()));
-			tooltip.setAnchorX(e.getScreenX() + 5);
-			tooltip.setAnchorY(e.getScreenY() + 5);
 		});
 
 		dataPoint.setNode(circle);
@@ -176,6 +184,7 @@ public class CustomScatterChart extends ScatterChart<Number, Number> {
 			circle.setRadius(radius);
 			circle.setCenterX(toX);
 			circle.setCenterY(toY);
+			circle.toFront();
 
 			// create curve
 			if (i > 0) {
