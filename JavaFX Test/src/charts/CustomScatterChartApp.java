@@ -19,7 +19,6 @@ public class CustomScatterChartApp extends Application {
 		chart.addDataPoint(xAxis.getLowerBound(), yAxis.getLowerBound());
 		chart.addDataPoint(0, 0);
 		chart.addDataPoint(xAxis.getUpperBound(), yAxis.getUpperBound());
-
 		chart.setLegendVisible(false);
 
 		final Scene scene = new Scene(chart, 800, 600);
