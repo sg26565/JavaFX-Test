@@ -31,6 +31,9 @@ public class CustomScatterChart extends ScatterChart<Number, Number> {
 	public CustomScatterChart(final NumberAxis xAxis, final NumberAxis yAxis) {
 		super(xAxis, yAxis);
 
+		setMinSize(500, 500);
+		setPrefSize(500, 500);
+
 		// add series
 		getData().add(new Series<>("Curve", curveList));
 		getData().add(new Series<>("Data Points", dataList));
@@ -107,7 +110,7 @@ public class CustomScatterChart extends ScatterChart<Number, Number> {
 			if (e.getButton() == MouseButton.PRIMARY) {
 				contextMenu.hide();
 				tooltip.setText(String.format("%d, %d", dataPoint.getXValue().intValue(), dataPoint.getYValue().intValue()));
-				tooltip.show(circle, e.getScreenX() + 5, e.getScreenY() + 5);
+				tooltip.show(circle, e.getScreenX() + 10, e.getScreenY() + 10);
 			}
 		});
 
@@ -149,8 +152,8 @@ public class CustomScatterChart extends ScatterChart<Number, Number> {
 
 				// update tooltip
 				tooltip.setText(String.format("%d, %d", dataPoint.getXValue().intValue(), dataPoint.getYValue().intValue()));
-				tooltip.setAnchorX(e.getScreenX() + 5);
-				tooltip.setAnchorY(e.getScreenY() + 5);
+				tooltip.setAnchorX(e.getScreenX() + 10);
+				tooltip.setAnchorY(e.getScreenY() + 10);
 			}
 		});
 
