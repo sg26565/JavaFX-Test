@@ -1,13 +1,8 @@
 package charts;
 
 import javafx.application.Application;
-import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.chart.NumberAxis;
-import javafx.scene.chart.XYChart.Data;
-import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableView;
-import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.BorderPane;
 import javafx.stage.Stage;
 
@@ -27,20 +22,21 @@ public class CustomScatterChartApp extends Application {
 		chart.addDataPoint(xAxis.getUpperBound(), yAxis.getUpperBound());
 		chart.setLegendVisible(false);
 
-		final TableView<Data<Number, Number>> tableView = new TableView<>();
-		final TableColumn<Data<Number, Number>, Number> xColumn = new TableColumn<>("X Value");
-		final TableColumn<Data<Number, Number>, Number> yColumn = new TableColumn<>("Y Value");
-		xColumn.setCellValueFactory(new PropertyValueFactory<>("XValue"));
-		yColumn.setCellValueFactory(new PropertyValueFactory<>("YValue"));
-
-		tableView.getColumns().add(xColumn);
-		tableView.getColumns().add(yColumn);
-		tableView.setItems(chart.getData().get(1).getData());
-		tableView.setMaxHeight(150);
-		tableView.setPadding(new Insets(10, 10, 10, 10));
+		// final TableView<Data<Number, Number>> tableView = new TableView<>();
+		// final TableColumn<Data<Number, Number>, Number> xColumn = new
+		// TableColumn<>("X Value");
+		// final TableColumn<Data<Number, Number>, Number> yColumn = new
+		// TableColumn<>("Y Value");
+		// xColumn.setCellValueFactory(new PropertyValueFactory<>("XValue"));
+		// yColumn.setCellValueFactory(new PropertyValueFactory<>("YValue"));
+		// tableView.getColumns().add(xColumn);
+		// tableView.getColumns().add(yColumn);
+		// tableView.setItems(chart.getData().get(0).getData());
+		// tableView.setMaxHeight(150);
+		// tableView.setPadding(new Insets(10, 10, 10, 10));
 
 		final BorderPane pane = new BorderPane(chart);
-		pane.setBottom(tableView);
+		// pane.setBottom(tableView);
 
 		final Scene scene = new Scene(pane);
 

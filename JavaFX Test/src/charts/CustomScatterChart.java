@@ -3,8 +3,11 @@ package charts;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
+import de.treichels.math.Matrix;
+import de.treichels.math.PolynomalFunction;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.scene.Group;
 import javafx.scene.Node;
 import javafx.scene.chart.NumberAxis;
 import javafx.scene.chart.ScatterChart;
@@ -16,17 +19,20 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Line;
+import javafx.scene.shape.LineTo;
+import javafx.scene.shape.MoveTo;
+import javafx.scene.shape.Path;
 
 public class CustomScatterChart extends ScatterChart<Number, Number> {
 	private final MenuItem add = new MenuItem("Add Point");
 	private final MenuItem del = new MenuItem("Delete Point");
 	private final ContextMenu contextMenu = new ContextMenu(add, del);
 	private final ObservableList<Data<Number, Number>> dataList = FXCollections.<Data<Number, Number>>observableArrayList();
-	private final ObservableList<Data<Number, Number>> curveList = FXCollections.<Data<Number, Number>>observableArrayList();
 	private final Tooltip tooltip = new Tooltip();
 	private double clickedX;
 	private double clickedY;
 	private Node clickedSymbol;
+	private PolynomalFunction[] functions;
 
 	public CustomScatterChart(final NumberAxis xAxis, final NumberAxis yAxis) {
 		super(xAxis, yAxis);
@@ -35,7 +41,6 @@ public class CustomScatterChart extends ScatterChart<Number, Number> {
 		setPrefSize(500, 500);
 
 		// add series
-		getData().add(new Series<>("Curve", curveList));
 		getData().add(new Series<>("Data Points", dataList));
 
 		/*** Event Handler ***/
@@ -59,8 +64,7 @@ public class CustomScatterChart extends ScatterChart<Number, Number> {
 
 		// delete action - remove data point of last clicked circle
 		del.setOnAction(e -> {
-			dataList.removeIf(d -> d.getNode() == clickedSymbol);
-			curveList.remove(0);
+			dataList.removeIf(d -> ((Group) d.getNode()).getChildren().get(0) == clickedSymbol);
 		});
 	}
 
@@ -70,9 +74,6 @@ public class CustomScatterChart extends ScatterChart<Number, Number> {
 
 	public void addDataPoint(final int index, final double x, final double y) {
 		dataList.add(index, createDataPoint(x, y));
-		final Data<Number, Number> curvePoint = new Data<>(x, y);
-		curvePoint.setNode(new Line());
-		curveList.add(curvePoint);
 	}
 
 	private Data<Number, Number> createDataPoint(final double x, final double y) {
@@ -157,7 +158,7 @@ public class CustomScatterChart extends ScatterChart<Number, Number> {
 			}
 		});
 
-		dataPoint.setNode(circle);
+		dataPoint.setNode(new Group(circle));
 		return dataPoint;
 	}
 
@@ -174,13 +175,116 @@ public class CustomScatterChart extends ScatterChart<Number, Number> {
 		final NumberAxis xAxis = (NumberAxis) getXAxis();
 		final NumberAxis yAxis = (NumberAxis) getYAxis();
 
+		// create polynomals
+		final int n = dataList.size();
+		functions = new PolynomalFunction[n - 1];
+		for (int i = 0; i < n - 1; i++) {
+			// ax^3 + bx^2 + cx + d
+			final PolynomalFunction f = new PolynomalFunction(3);
+			functions[i] = f;
+
+			// di = yi
+			final double di = dataList.get(i).getYValue().doubleValue();
+			f.getCoefficients()[3] = di;
+		}
+
+		// create coefficent matrix
+		final int rows = n - 2;
+		final int columns = n - 1;
+		final Matrix matrix = new Matrix(rows, columns);
+
+		// fill and solve matrix only for 3 point or more
+		if (rows > 0) {
+			for (int i = 1; i < n - 1; i++) {
+				final double[] row = matrix.getData()[i - 1];
+
+				final Data<Number, Number> dataim1 = dataList.get(i - 1);
+				final Data<Number, Number> datai = dataList.get(i);
+				final Data<Number, Number> dataip1 = dataList.get(i + 1);
+
+				final double xim1 = dataim1.getXValue().doubleValue();
+				final double xi = datai.getXValue().doubleValue();
+				final double xip1 = dataip1.getXValue().doubleValue();
+
+				final double yim1 = dataim1.getYValue().doubleValue();
+				final double yi = datai.getYValue().doubleValue();
+				final double yip1 = dataip1.getYValue().doubleValue();
+
+				if (i > 1) {
+					row[i - 2] = xi - xim1;
+				}
+
+				row[i - 1] = 2 * (xip1 - xim1);
+
+				if (i < n - 2) {
+					row[i] = xip1 - xi;
+				}
+
+				row[columns - 1] = 3 * ((yip1 - yi) / (xip1 - xi) - (yi - yim1) / (xi - xim1));
+			}
+
+			// System.out.println(matrix);
+			matrix.solve();
+			// System.out.println(matrix);
+		}
+
+		// get bi from solved matrix
+		for (int i = 0; i < n - 1; i++) {
+			final PolynomalFunction f = functions[i];
+
+			final double bi = i == 0 ? 0 : matrix.get(i - 1, columns - 1);
+
+			f.getCoefficients()[1] = bi;
+		}
+
+		// calculate ai and ci
+		for (int i = 0; i < n - 1; i++) {
+			final Data<Number, Number> datai = dataList.get(i);
+			final Data<Number, Number> dataip1 = dataList.get(i + 1);
+
+			final double xi = datai.getXValue().doubleValue();
+			final double xip1 = dataip1.getXValue().doubleValue();
+
+			final double yi = datai.getYValue().doubleValue();
+			final double yip1 = dataip1.getYValue().doubleValue();
+
+			final PolynomalFunction fi = functions[i];
+
+			final double bi = fi.getCoefficients()[1];
+			final double bip1;
+			if (i < n - 2) {
+				final PolynomalFunction fip1 = functions[i + 1];
+				bip1 = fip1.getCoefficients()[1];
+			} else {
+				bip1 = 0;
+			}
+
+			final double ai = (bip1 - bi) / 3 / (xip1 - xi);
+			final double ci = (yip1 - yi) / (xip1 - xi) - (bip1 - bi) * (xip1 - xi) / 3 - bi * (xip1 - xi);
+			fi.getCoefficients()[0] = ai;
+			fi.getCoefficients()[2] = ci;
+		}
+
+		// for (int i = 0; i < n - 1; i++) {
+		// System.out.printf("f[%d]=%s\n", i, functions[i]);
+		// }
+
 		// update symbol positions
+		Number x0 = null;
+		double fromX = 0;
+		double fromY = 0;
+
 		for (int i = 0; i < dataList.size(); i++) {
 			final Data<Number, Number> dataPoint = dataList.get(i);
 
-			final Circle circle = (Circle) dataPoint.getNode();
-			final double toX = getDisplayPosition(dataPoint.getXValue(), xAxis);
-			final double toY = getDisplayPosition(dataPoint.getYValue(), yAxis);
+			final ObservableList<Node> nodes = ((Group) dataPoint.getNode()).getChildren();
+			nodes.remove(1, nodes.size());
+			final Circle circle = (Circle) nodes.get(0);
+
+			final Number x1 = dataPoint.getXValue();
+			final Number y1 = dataPoint.getYValue();
+			final double toX = getDisplayPosition(x1, xAxis);
+			final double toY = getDisplayPosition(y1, yAxis);
 			final double radius = 2 + min(xAxis.getWidth(), yAxis.getHeight()) / 200;
 
 			// update circle
@@ -189,20 +293,42 @@ public class CustomScatterChart extends ScatterChart<Number, Number> {
 			circle.setCenterY(toY);
 			circle.toFront();
 
-			// create curve
 			if (i > 0) {
-				final Data<Number, Number> lastDataPoint = dataList.get(i - 1);
-				final Data<Number, Number> curvePoint = curveList.get(i - 1);
-
-				curvePoint.setXValue(dataPoint.getXValue());
-				curvePoint.setYValue(dataPoint.getYValue());
-
-				final Line line = (Line) curvePoint.getNode();
-				line.setStartX(getDisplayPosition(lastDataPoint.getXValue(), xAxis));
-				line.setStartY(getDisplayPosition(lastDataPoint.getYValue(), yAxis));
+				// draw line
+				final Line line = new Line();
+				line.setStartX(fromX);
+				line.setStartY(fromY);
 				line.setEndX(toX);
 				line.setEndY(toY);
+				line.setStroke(Color.LIGHTGREY);
+				line.getStrokeDashArray().addAll(10d, 8d, 2d, 8d);
+				line.toBack();
+				nodes.add(line);
+
+				// draw spline
+				final PolynomalFunction f = functions[i - 1];
+				final Path path = new Path();
+				final int range = x1.intValue() - x0.intValue();
+				for (int x = 0; x <= range; x++) {
+					final double y = f.evaluate(x);
+					final double toX1 = getDisplayPosition(x + x0.intValue(), xAxis);
+					final double toY1 = getDisplayPosition(y, yAxis);
+
+					if (x == 0) {
+						path.getElements().add(new MoveTo(toX1, toY1));
+					} else {
+						path.getElements().add(new LineTo(toX1, toY1));
+					}
+				}
+				path.setStroke(Color.BLUE);
+				path.toBack();
+				nodes.add(path);
 			}
+
+			// save current values for next loop
+			x0 = x1;
+			fromX = toX;
+			fromY = toY;
 		}
 	}
 }
